@@ -125,8 +125,13 @@
       document.getElementById(id).value = Number(val).toFixed(2);
     }
 
-    function runPayrollEngine() {
-      if(backendData.length === 0) return alert("System Error: Dictionary missing.");
+function runPayrollEngine() {
+      // 1. 调试日志：检查数据有没有加载进来
+      console.log("Backend Data Loaded Count:", backendData.length);
+      if(backendData.length === 0) {
+        alert("System Error: Dictionary missing. 请检查后台数据是否成功注入！");
+        return;
+      }
 
       const salary = getNum('inp-salary');
       const allowance = getNum('inp-allowance');
@@ -139,15 +144,32 @@
       const epfWages = grossPay; 
       const socsoWages = salary + allowance + hp + incentive; 
 
+      console.log("EPF Wages:", epfWages, "| SOCSO Wages:", socsoWages);
+
       let epfDeduct = 0, socsoDeduct = 0, skbbkDeduct = 0, sipDeduct = 0;
 
-      const epfRow = backendData.find(row => epfWages >= parseFloat(row['Salary Wages/From']) && epfWages <= parseFloat(row['Salary Wages/To']));
+      // 2. 升级版安全查表逻辑（强制转浮点数匹配，防范字符串/数字类型冲突）
+      const epfRow = backendData.find(row => {
+        const from = parseFloat(row['Salary Wages/From']);
+        const to = parseFloat(row['Salary Wages/To']);
+        return epfWages >= from && epfWages <= to;
+      });
+
       if (epfRow) {
+        console.log("Matched EPF Row:", epfRow);
         epfDeduct = isAbove60 ? 0 : parseFloat(epfRow['Below 60/EPF Employee'] || 0); 
+      } else {
+        console.warn("No matching EPF row found for wages:", epfWages);
       }
 
-      const socsoRow = backendData.find(row => socsoWages >= parseFloat(row['Salary Wages/From']) && socsoWages <= parseFloat(row['Salary Wages/To']));
+      const socsoRow = backendData.find(row => {
+        const from = parseFloat(row['Salary Wages/From']);
+        const to = parseFloat(row['Salary Wages/To']);
+        return socsoWages >= from && socsoWages <= to;
+      });
+
       if (socsoRow) {
+        console.log("Matched SOCSO Row:", socsoRow);
         if (isAbove60) {
            socsoDeduct = 0;
            skbbkDeduct = parseFloat(socsoRow['Above 60/SKBBK'] || 0);
@@ -157,6 +179,8 @@
            skbbkDeduct = parseFloat(socsoRow['Below 60/SKBBK'] || 0);
            sipDeduct = parseFloat(socsoRow['Below 60/SIP Employee'] || 0);
         }
+      } else {
+        console.warn("No matching SOCSO row found for wages:", socsoWages);
       }
 
       const totalDeductions = epfDeduct + socsoDeduct + skbbkDeduct + sipDeduct;
@@ -173,7 +197,7 @@
       setVal('out-net', netPay);
       setVal('out-balance', salaryBalance);
     }
-
+    
     function clearData() {
       document.querySelectorAll('.item-input').forEach(el => el.value = "0.00");
       document.getElementById('chk-above60').checked = false;
