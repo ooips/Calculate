@@ -1,0 +1,90 @@
+<script>
+    /**
+     * ==============================================================================
+     * SECTION 4.2: SPA Engine (适配 GitHub Pages 静态注入版)
+     * ==============================================================================
+     */
+    let backendData = []; 
+    
+    // 🔥 这里是依赖注入槽！Apps Script 推送时会把最新数据塞到这里！
+    backendData = []; 
+
+    window.onload = () => {
+      // 页面一打开，数据已经在里面了，直接渲染界面
+      document.getElementById("loader").style.display = "none";
+      document.getElementById("app").style.display = "block";
+    };
+
+    // 辅助函数：安全转换字符串到数字
+    function getNum(id) {
+      const val = parseFloat(document.getElementById(id).value);
+      return isNaN(val) ? 0 : val;
+    }
+    // 辅助函数：设置货币格式展示
+    function setVal(id, val) {
+      document.getElementById(id).value = Number(val).toFixed(2);
+    }
+
+    /**
+     * Core 5 - Payroll Calculation Engine (算薪引擎)
+     */
+    function runPayrollEngine() {
+      if(backendData.length === 0) return alert("System Error: Dictionary missing.");
+
+      const salary = getNum('inp-salary');
+      const allowance = getNum('inp-allowance');
+      const hp = getNum('inp-hp');
+      const incentive = getNum('inp-incentive');
+      const bonus = getNum('inp-bonus');
+      const isAbove60 = document.getElementById('chk-above60').checked;
+
+      // 基数分离
+      const grossPay = salary + allowance + hp + incentive + bonus;
+      const epfWages = grossPay; 
+      const socsoWages = salary + allowance + hp + incentive; 
+
+      let epfDeduct = 0, socsoDeduct = 0, skbbkDeduct = 0, sipDeduct = 0;
+
+      // 匹配 EPF
+      const epfRow = backendData.find(row => epfWages >= parseFloat(row['Salary Wages/From']) && epfWages <= parseFloat(row['Salary Wages/To']));
+      if (epfRow) {
+        epfDeduct = isAbove60 ? 0 : parseFloat(epfRow['Below 60/EPF Employee'] || 0); 
+      }
+
+      // 匹配 SOCSO / SKBBK / SIP
+      const socsoRow = backendData.find(row => socsoWages >= parseFloat(row['Salary Wages/From']) && socsoWages <= parseFloat(row['Salary Wages/To']));
+      if (socsoRow) {
+        if (isAbove60) {
+           socsoDeduct = 0;
+           skbbkDeduct = parseFloat(socsoRow['Above 60/SKBBK'] || 0);
+           sipDeduct = 0;
+        } else {
+           socsoDeduct = parseFloat(socsoRow['Below 60/Socso Employee'] || 0);
+           skbbkDeduct = parseFloat(socsoRow['Below 60/SKBBK'] || 0);
+           sipDeduct = parseFloat(socsoRow['Below 60/SIP Employee'] || 0);
+        }
+      }
+
+      // 结算 Net 与 Balance
+      const totalDeductions = epfDeduct + socsoDeduct + skbbkDeduct + sipDeduct;
+      const netPay = grossPay - totalDeductions;
+
+      const paidAllowance = getNum('inp-paid-allowance');
+      const advanceSalary = getNum('inp-adv-salary');
+      const salaryBalance = netPay - paidAllowance - advanceSalary;
+
+      // 渲染输出
+      setVal('out-gross', grossPay);
+      setVal('out-epf', epfDeduct);
+      setVal('out-socso', socsoDeduct);
+      setVal('out-skbbk', skbbkDeduct);
+      setVal('out-sip', sipDeduct);
+      setVal('out-net', netPay);
+      setVal('out-balance', salaryBalance);
+    }
+
+    function clearData() {
+      document.querySelectorAll('.item-input').forEach(el => el.value = "0.00");
+      document.getElementById('chk-above60').checked = false;
+    }
+  </script>
