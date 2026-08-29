@@ -1,33 +1,130 @@
-<script>
-    /**
-     * ==============================================================================
-     * SECTION 4.2: SPA Engine (适配 GitHub Pages 静态注入版)
-     * ==============================================================================
-     */
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Payroll Slip System</title>
+  <style>
+    :root {
+      --pc-width: 380px;
+      --pc-bg: #FFFFFF;
+      --app-bg: #F4F5F7;
+      --primary-color: #333;
+      --font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    }
+    body {
+      background-color: var(--app-bg);
+      font-family: var(--font-family);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+      color: var(--primary-color);
+    }
+    .slip-container {
+      width: var(--pc-width);
+      background-color: var(--pc-bg);
+      padding: 24px;
+      border-radius: 8px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+      box-sizing: border-box;
+    }
+    .section-header {
+      font-size: 14px;
+      font-weight: bold;
+      letter-spacing: 1px;
+      margin-bottom: 12px;
+      margin-top: 16px;
+    }
+    .section-header:first-child { margin-top: 0; }
+    .item-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 0;
+      font-size: 15px;
+    }
+    .item-label { width: 50%; text-align: left; }
+    .item-input { 
+      width: 45%; 
+      text-align: right; 
+      padding: 4px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 15px;
+      outline: none;
+    }
+    .item-input:focus { border-color: #888; }
+    .item-input[readonly] { border: none; background: transparent; font-weight: normal; }
+    .total-row { font-weight: bold; border-top: 1px solid #000; padding-top: 10px; margin-top: 6px; }
+    .net-row { font-weight: bold; border-top: 1px solid #000; border-bottom: 1px solid #000; padding: 8px 0; margin: 8px 0; }
+    .balance-row { font-weight: bold; font-size: 16px; border-bottom: 4px double #000; padding-bottom: 6px; }
+    .btn-group { display: flex; flex-direction: column; gap: 10px; margin-top: 24px; }
+    button { padding: 12px; border: none; border-radius: 6px; font-size: 15px; font-weight: bold; cursor: pointer; }
+    .btn-calc { background-color: #1a73e8; color: #fff; }
+    .btn-clear { background-color: #e8eaed; color: #5f6368; }
+    .tick-row { margin: 10px 0; display: flex; align-items: center; font-size: 14px;}
+    .tick-row input { margin-right: 8px; cursor: pointer; }
+    #loader { text-align: center; font-size: 14px; color: #888; margin-bottom: 15px; }
+  </style>
+</head>
+<body>
+
+  <div class="slip-container">
+    <div id="loader">Initializing Engine & Loading Datasets...</div>
+    
+    <div id="app" style="display: none;">
+      <!-- 第一段：收入区 (PAYMENT) -->
+      <div class="section-header">PAYMENT</div>
+      <div class="item-row"><div class="item-label">BASIC PAY</div><input type="number" id="inp-salary" class="item-input" value="0.00" onfocus="if(this.value=='0.00')this.value=''" onblur="if(this.value=='')this.value='0.00'"></div>
+      <div class="item-row"><div class="item-label">ALLOWANCE</div><input type="number" id="inp-allowance" class="item-input" value="0.00" onfocus="if(this.value=='0.00')this.value=''" onblur="if(this.value=='')this.value='0.00'"></div>
+      <div class="item-row"><div class="item-label">HP ALLOWANCE</div><input type="number" id="inp-hp" class="item-input" value="0.00" onfocus="if(this.value=='0.00')this.value=''" onblur="if(this.value=='')this.value='0.00'"></div>
+      <div class="item-row"><div class="item-label">INCENTIVE</div><input type="number" id="inp-incentive" class="item-input" value="0.00" onfocus="if(this.value=='0.00')this.value=''" onblur="if(this.value=='')this.value='0.00'"></div>
+      <div class="item-row"><div class="item-label">BONUS</div><input type="number" id="inp-bonus" class="item-input" value="0.00" onfocus="if(this.value=='0.00')this.value=''" onblur="if(this.value=='')this.value='0.00'"></div>
+      <div class="item-row total-row"><div class="item-label">GROSS PAY</div><input type="text" id="out-gross" class="item-input" value="0.00" readonly></div>
+      <div class="tick-row"><input type="checkbox" id="chk-above60"> <label for="chk-above60">Age Above 60</label></div>
+
+      <!-- 第二段：扣款区 (DEDUCTION) -->
+      <div class="section-header">DEDUCTION</div>
+      <div class="item-row"><div class="item-label">EPF</div><input type="text" id="out-epf" class="item-input" value="0.00" readonly></div>
+      <div class="item-row"><div class="item-label">SOCSO</div><input type="text" id="out-socso" class="item-input" value="0.00" readonly></div>
+      <div class="item-row"><div class="item-label">SKBBK</div><input type="text" id="out-skbbk" class="item-input" value="0.00" readonly></div>
+      <div class="item-row"><div class="item-label">SIP</div><input type="text" id="out-sip" class="item-input" value="0.00" readonly></div>
+      <div class="item-row net-row"><div class="item-label">NET PAY</div><input type="text" id="out-net" class="item-input" value="0.00" readonly></div>
+
+      <!-- 第三段：调整与结算 (ADJUSTMENT) -->
+      <div class="section-header">ADJUSTMENT</div>
+      <div class="item-row"><div class="item-label">Paid Allowance</div><input type="number" id="inp-paid-allowance" class="item-input" value="0.00" onfocus="if(this.value=='0.00')this.value=''" onblur="if(this.value=='')this.value='0.00'"></div>
+      <div class="item-row"><div class="item-label">Advance Salary</div><input type="number" id="inp-adv-salary" class="item-input" value="0.00" onfocus="if(this.value=='0.00')this.value=''" onblur="if(this.value=='')this.value='0.00'"></div>
+      <div class="item-row balance-row" style="margin-top:12px;"><div class="item-label">SALARY BALANCE</div><input type="text" id="out-balance" class="item-input" style="font-weight:bold; font-size:16px;" value="0.00" readonly></div>
+
+      <!-- 按钮操作区 -->
+      <div class="btn-group">
+        <button class="btn-calc" onclick="runPayrollEngine()">CALCULATE</button>
+        <button class="btn-clear" onclick="clearData()">CLEAR</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
     let backendData = []; 
     
-    // 🔥 这里是依赖注入槽！Apps Script 推送时会把最新数据塞到这里！
+    // 🔥 依赖注入槽
     backendData = []; 
 
     window.onload = () => {
-      // 页面一打开，数据已经在里面了，直接渲染界面
       document.getElementById("loader").style.display = "none";
       document.getElementById("app").style.display = "block";
     };
 
-    // 辅助函数：安全转换字符串到数字
     function getNum(id) {
       const val = parseFloat(document.getElementById(id).value);
       return isNaN(val) ? 0 : val;
     }
-    // 辅助函数：设置货币格式展示
     function setVal(id, val) {
       document.getElementById(id).value = Number(val).toFixed(2);
     }
 
-    /**
-     * Core 5 - Payroll Calculation Engine (算薪引擎)
-     */
     function runPayrollEngine() {
       if(backendData.length === 0) return alert("System Error: Dictionary missing.");
 
@@ -38,20 +135,17 @@
       const bonus = getNum('inp-bonus');
       const isAbove60 = document.getElementById('chk-above60').checked;
 
-      // 基数分离
       const grossPay = salary + allowance + hp + incentive + bonus;
       const epfWages = grossPay; 
       const socsoWages = salary + allowance + hp + incentive; 
 
       let epfDeduct = 0, socsoDeduct = 0, skbbkDeduct = 0, sipDeduct = 0;
 
-      // 匹配 EPF
       const epfRow = backendData.find(row => epfWages >= parseFloat(row['Salary Wages/From']) && epfWages <= parseFloat(row['Salary Wages/To']));
       if (epfRow) {
         epfDeduct = isAbove60 ? 0 : parseFloat(epfRow['Below 60/EPF Employee'] || 0); 
       }
 
-      // 匹配 SOCSO / SKBBK / SIP
       const socsoRow = backendData.find(row => socsoWages >= parseFloat(row['Salary Wages/From']) && socsoWages <= parseFloat(row['Salary Wages/To']));
       if (socsoRow) {
         if (isAbove60) {
@@ -65,15 +159,12 @@
         }
       }
 
-      // 结算 Net 与 Balance
       const totalDeductions = epfDeduct + socsoDeduct + skbbkDeduct + sipDeduct;
       const netPay = grossPay - totalDeductions;
-
       const paidAllowance = getNum('inp-paid-allowance');
       const advanceSalary = getNum('inp-adv-salary');
       const salaryBalance = netPay - paidAllowance - advanceSalary;
 
-      // 渲染输出
       setVal('out-gross', grossPay);
       setVal('out-epf', epfDeduct);
       setVal('out-socso', socsoDeduct);
@@ -88,3 +179,5 @@
       document.getElementById('chk-above60').checked = false;
     }
   </script>
+</body>
+</html>
