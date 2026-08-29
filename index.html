@@ -126,10 +126,8 @@
     }
 
 function runPayrollEngine() {
-      // 1. 调试日志：检查数据有没有加载进来
-      console.log("Backend Data Loaded Count:", backendData.length);
       if(backendData.length === 0) {
-        alert("System Error: Dictionary missing. 请检查后台数据是否成功注入！");
+        alert("System Error: Dictionary missing.");
         return;
       }
 
@@ -144,11 +142,10 @@ function runPayrollEngine() {
       const epfWages = grossPay; 
       const socsoWages = salary + allowance + hp + incentive; 
 
-      console.log("EPF Wages:", epfWages, "| SOCSO Wages:", socsoWages);
-
       let epfDeduct = 0, socsoDeduct = 0, skbbkDeduct = 0, sipDeduct = 0;
 
-function findRow(wages) {
+      // 智能匹配函数：自动识别行里面哪个键是 From，哪个是 To
+      function findRow(wages) {
         return backendData.find(row => {
           let keys = Object.keys(row);
           let fromKey = keys.find(k => k.toLowerCase().includes('from') || k.toLowerCase().includes('wages/from'));
@@ -162,37 +159,32 @@ function findRow(wages) {
           return wages >= from && wages <= to;
         });
       }
-      
-      // 2. 升级版安全查表逻辑（强制转浮点数匹配，防范字符串/数字类型冲突）
-      const epfRow = backendData.find(row => {
-        const from = parseFloat(row['Salary Wages/From']);
-        const to = parseFloat(row['Salary Wages/To']);
-        return epfWages >= from && epfWages <= to;
-      });
 
+      const epfRow = findRow(epfWages);
       if (epfRow) {
-        console.log("Matched EPF Row:", epfRow);
-        epfDeduct = isAbove60 ? 0 : parseFloat(epfRow['Below 60/EPF Employee'] || 0); 
+        let keys = Object.keys(epfRow);
+        // 自动寻找包含 epf employee 的列
+        let epfKey = keys.find(k => k.toLowerCase().includes('epf') && k.toLowerCase().includes('employee'));
+        epfDeduct = isAbove60 ? 0 : parseFloat(epfRow[epfKey] || 0); 
       } else {
         console.warn("No matching EPF row found for wages:", epfWages);
       }
 
-      const socsoRow = backendData.find(row => {
-        const from = parseFloat(row['Salary Wages/From']);
-        const to = parseFloat(row['Salary Wages/To']);
-        return socsoWages >= from && socsoWages <= to;
-      });
-
+      const socsoRow = findRow(socsoWages);
       if (socsoRow) {
-        console.log("Matched SOCSO Row:", socsoRow);
+        let keys = Object.keys(socsoRow);
+        let socsoKey = keys.find(k => k.toLowerCase().includes('socso') && k.toLowerCase().includes('employee'));
+        let skbbkKey = keys.find(k => k.toLowerCase().includes('skbbk'));
+        let sipKey = keys.find(k => k.toLowerCase().includes('sip') && k.toLowerCase().includes('employee'));
+
         if (isAbove60) {
            socsoDeduct = 0;
-           skbbkDeduct = parseFloat(socsoRow['Above 60/SKBBK'] || 0);
+           skbbkDeduct = parseFloat(socsoRow[skbbkKey] || 0);
            sipDeduct = 0;
         } else {
-           socsoDeduct = parseFloat(socsoRow['Below 60/Socso Employee'] || 0);
-           skbbkDeduct = parseFloat(socsoRow['Below 60/SKBBK'] || 0);
-           sipDeduct = parseFloat(socsoRow['Below 60/SIP Employee'] || 0);
+           socsoDeduct = parseFloat(socsoRow[socsoKey] || 0);
+           skbbkDeduct = parseFloat(socsoRow[skbbkKey] || 0);
+           sipDeduct = parseFloat(socsoRow[sipKey] || 0);
         }
       } else {
         console.warn("No matching SOCSO row found for wages:", socsoWages);
