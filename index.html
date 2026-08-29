@@ -148,6 +148,21 @@ function runPayrollEngine() {
 
       let epfDeduct = 0, socsoDeduct = 0, skbbkDeduct = 0, sipDeduct = 0;
 
+function findRow(wages) {
+        return backendData.find(row => {
+          let keys = Object.keys(row);
+          let fromKey = keys.find(k => k.toLowerCase().includes('from') || k.toLowerCase().includes('wages/from'));
+          let toKey = keys.find(k => k.toLowerCase().includes('to') || k.toLowerCase().includes('wages/to'));
+          
+          if (!fromKey || !toKey) return false;
+          
+          let from = parseFloat(row[fromKey]);
+          let to = parseFloat(row[toKey]);
+          
+          return wages >= from && wages <= to;
+        });
+      }
+      
       // 2. 升级版安全查表逻辑（强制转浮点数匹配，防范字符串/数字类型冲突）
       const epfRow = backendData.find(row => {
         const from = parseFloat(row['Salary Wages/From']);
@@ -197,7 +212,7 @@ function runPayrollEngine() {
       setVal('out-net', netPay);
       setVal('out-balance', salaryBalance);
     }
-    
+
     function clearData() {
       document.querySelectorAll('.item-input').forEach(el => el.value = "0.00");
       document.getElementById('chk-above60').checked = false;
